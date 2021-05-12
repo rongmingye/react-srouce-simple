@@ -1,14 +1,30 @@
+import { Component } from "./react.js"
+
 const ReactDom = {
     render
 }
 
-function render(vnode, container) {
-    if(vnode === undefined) return
+function render(vnode, container) { 
+    return container.appendChild(_render(vnode))
+}
+
+// jsx 转 dom
+function _render(vnode) {
+    if(vnode === undefined || vnode === null || typeof vnode === 'boolean') vnode = ''
 
     // 如果是字符串
     if (typeof vnode === 'string') {
-        let textNode = document.createTextNode(vnode)
-        return container.append(textNode)
+        return document.createTextNode(vnode)
+    }
+
+    // 如果是函数组件，渲染组件
+    if (typeof vnode.tag === 'function') {
+        // 1. 创建组件
+        const comp = createComponent(vnode.tag, vnode.attrs)
+        // 设置组件的属性
+        setComponentProps(comp, vnode.attrs)
+
+        return comp.base
     }
 
     const {tag, attrs, childrens} = vnode
@@ -21,9 +37,41 @@ function render(vnode, container) {
     }
 
     // 子节点
-    childrens.forEach(child => render(child, dom))
+    childrens.forEach(child => dom.appendChild(_render(child)))
 
-    return container.appendChild(dom)
+    return dom
+}
+
+
+// 创建组件
+function createComponent(comp, props) {
+    let inst 
+
+    if (comp.prototype && comp.prototype.render) {
+        // 类组件
+        inst = new comp(props)
+    } else {
+        // 函数组件扩展为类组件
+        inst = new Component(props)
+        inst.prototype.constructor = comp
+        inst.render = function() {
+            return this.constructor(this.props)
+        }
+    }
+
+    return inst
+}
+
+// 设置组件属性
+function setComponentProps(comp, props) {
+    comp.props = props
+    renderComponent(comp)
+}
+
+// 渲染组件
+function renderComponent(comp) {
+    let vnode = comp.render(comp.props) // 返回jsx
+    comp.base = _render(vnode) // 渲染dom节点
 }
 
 function setAttribute(dom, key, value) {
